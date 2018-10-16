@@ -1,48 +1,46 @@
-'use strict';
+"use strict";
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
-var _dayjs = require('dayjs');
+var _dayjs = require("dayjs");
 
 var _dayjs2 = _interopRequireDefault(_dayjs);
 
-var _twitter = require('../../config/twitter');
+var _createEmail = require("../../email/server/createEmail");
+
+var _createEmail2 = _interopRequireDefault(_createEmail);
+
+var _twitter = require("twitter");
 
 var _twitter2 = _interopRequireDefault(_twitter);
 
-var _sendgrid = require('../../config/sendgrid');
+var _connectors = require("./connectors");
 
-var _sendgrid2 = _interopRequireDefault(_sendgrid);
-
-var _twitter3 = require('twitter');
-
-var _twitter4 = _interopRequireDefault(_twitter3);
-
-var _connectors = require('./connectors');
-
-var _asyncRequest = require('async-request');
+var _asyncRequest = require("async-request");
 
 var _asyncRequest2 = _interopRequireDefault(_asyncRequest);
 
-var _unfluff = require('unfluff');
+var _unfluff = require("unfluff");
 
 var _unfluff2 = _interopRequireDefault(_unfluff);
 
-var _mail = require('@sendgrid/mail');
+var _mail = require("@sendgrid/mail");
 
 var _mail2 = _interopRequireDefault(_mail);
 
+var _jsBase = require("js-base64");
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-_mail2.default.setApiKey(_sendgrid2.default);
+_mail2.default.setApiKey(process.env.SENDGRID_API_KEY);
 
-const client = new _twitter4.default({
-  consumer_key: _twitter2.default.consumerkey,
-  consumer_secret: _twitter2.default.consumerSecret,
-  access_token_key: _twitter2.default.accessKey,
-  access_token_secret: _twitter2.default.accessSecret
+const client = new _twitter2.default({
+  consumer_key: process.env.CONSUMER_KEY,
+  consumer_secret: process.env.CONSUMER_SECRET,
+  access_token_key: process.env.ACCESS_KEY,
+  access_token_secret: process.env.ACCESS_SECRET
 });
 
 const getSubscribers = async () => {
@@ -53,15 +51,23 @@ const mapSubscribers = subscribers => {
   for (var i = 0, l = subscribers.length; i < l; i++) {}
 };
 
-const getAllFavouritesForUser = async subscriber => {
-  let { username } = subscriber;
-  return client.get('favorites/list', { screen_name: username, count: 200 });
+const getAllFavouritesForUser = async username => {
+  try {
+    let data = await client.get('favorites/list', {
+      screen_name: username,
+      count: 200
+    });
+    return data;
+  } catch (e) {
+    console.log(e);
+  }
 };
 
 const checkValidFavourite = (period, favouriteDate) => {
   let today = (0, _dayjs2.default)();
   let periodStart = today.subtract(period, 'days');
   let favDate = (0, _dayjs2.default)(favouriteDate);
+
   if (favDate.isAfter(periodStart)) {
     return true;
   }
@@ -87,48 +93,92 @@ const extractUrls = data => {
 };
 
 const getContent = async url => {
-  let { body } = await (0, _asyncRequest2.default)(url);
+  let {
+    body
+  } = await (0, _asyncRequest2.default)(url);
   let result = (0, _unfluff2.default)(body);
   return result;
 };
 
 const mapUrls = async urls => {
   let content = [];
+
   for (var i = 0, l = urls.length; i < l; i++) {
     let url = urls[i];
     let result = await getContent(url);
     content.push(result);
   }
+
   return content;
 };
 
-const sendEmail = (html, subscriber) => {
-  let { email, username } = subscriber;
+const sendEmail = async (html, attachments, subscriber) => {
+  let {
+    email,
+    username
+  } = subscriber;
   const msg = {
     to: email,
     from: 'noreply@shipper.grabeh.net',
     subject: `Content for @${username}`,
-    text: html
+    html: html,
+    attachments: attachments
   };
-  _mail2.default.send(msg);
+
+  try {
+    await _mail2.default.send(msg);
+  } catch (e) {
+    console.log(e.response.body.errors);
+  }
 };
 
-const check = async subscriber => {
-  let { username } = subscriber;
+const formAttachments = content => {
+  return content.map(a => {
+    return {
+      content: _jsBase.Base64.encode(a.text),
+      filename: `${a.title}.txt`,
+      type: 'plain/text',
+      disposition: 'attachment',
+      content_id: 'mytext'
+    };
+  });
+};
+
+const getContentFromFavourites = async subscriber => {
+  let {
+    username
+  } = subscriber;
   let favourites = await getAllFavouritesForUser(username);
   let qualifying = getFavouritesForPeriod(favourites, 7);
   let urls = extractUrls(qualifying);
-  let contentArr = await mapUrls(urls);
-  let html = produceHtml(contentArr);
-  return html;
+  let content = await mapUrls(urls);
+  let data = {
+    content,
+    username
+  };
+
+  try {
+    let attachments = formAttachments(data.content);
+    let html = await (0, _createEmail2.default)(data);
+    return {
+      attachments,
+      html
+    };
+  } catch (e) {
+    console.log(e);
+  }
 };
 
 const main = async subscriber => {
-  let { username } = subscriber;
-  let html = await check(username);
-  sendEmail(html, subscriber);
+  let {
+    html,
+    attachments
+  } = await getContentFromFavourites(subscriber);
+  sendEmail(html, attachments, subscriber);
 };
 
-main('grabbeh');
-
-exports.default = check;
+main({
+  username: 'grabbeh',
+  email: 'mbg@outlook.com'
+});
+exports.default = getContentFromFavourites;

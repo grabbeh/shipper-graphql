@@ -8,21 +8,13 @@ var _dayjs = require("dayjs");
 
 var _dayjs2 = _interopRequireDefault(_dayjs);
 
-var _twitter = require("../../../config/twitter");
+var _createEmail = require("../../../email/server/createEmail");
+
+var _createEmail2 = _interopRequireDefault(_createEmail);
+
+var _twitter = require("twitter");
 
 var _twitter2 = _interopRequireDefault(_twitter);
-
-var _sendgrid = require("../../../config/sendgrid");
-
-var _sendgrid2 = _interopRequireDefault(_sendgrid);
-
-var _produceHtml = require("./produceHtml");
-
-var _produceHtml2 = _interopRequireDefault(_produceHtml);
-
-var _twitter3 = require("twitter");
-
-var _twitter4 = _interopRequireDefault(_twitter3);
 
 var _connectors = require("../connectors");
 
@@ -40,13 +32,17 @@ var _mail2 = _interopRequireDefault(_mail);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-_mail2.default.setApiKey(_sendgrid2.default);
+require('dotenv').config({
+  path: '../../../.env'
+});
 
-const client = new _twitter4.default({
-  consumer_key: _twitter2.default.consumerkey,
-  consumer_secret: _twitter2.default.consumerSecret,
-  access_token_key: _twitter2.default.accessKey,
-  access_token_secret: _twitter2.default.accessSecret
+_mail2.default.setApiKey(process.env.SENDGRID_API_KEY);
+
+const client = new _twitter2.default({
+  consumer_key: process.env.CONSUMER_KEY,
+  consumer_secret: process.env.CONSUMER_SECRET,
+  access_token_key: process.env.ACCESS_KEY,
+  access_token_secret: process.env.TOKEN_SECRET
 });
 
 const getSubscribers = async () => {
@@ -114,7 +110,6 @@ const mapUrls = async urls => {
 };
 
 const sendEmail = (html, subscriber) => {
-  console.log(html);
   let {
     email,
     username
@@ -136,8 +131,12 @@ const check = async subscriber => {
   let favourites = await getAllFavouritesForUser(username);
   let qualifying = getFavouritesForPeriod(favourites, 7);
   let urls = extractUrls(qualifying);
-  let contentArr = await mapUrls(urls);
-  let html = (0, _produceHtml2.default)(contentArr);
+  let content = await mapUrls(urls);
+  let data = {
+    content,
+    username
+  };
+  let html = await (0, _createEmail2.default)(data);
   return html;
 };
 

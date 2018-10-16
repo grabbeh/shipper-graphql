@@ -1,19 +1,19 @@
 import dayjs from 'dayjs'
-import cfg from '../../../config/twitter'
-import sgApiKey from '../../../config/sendgrid'
-import produceHtml from './produceHtml'
+import createEmail from '../../email/server/createEmail'
 import Twitter from 'twitter'
-import { Subscriber } from '../connectors'
+import { Subscriber } from './connectors'
 import request from 'async-request'
 import unfluff from 'unfluff'
 import sgMail from '@sendgrid/mail'
-sgMail.setApiKey(sgApiKey)
+import { Base64 } from 'js-base64'
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY)
 
 const client = new Twitter({
-  consumer_key: cfg.consumerkey,
-  consumer_secret: cfg.consumerSecret,
-  access_token_key: cfg.accessKey,
-  access_token_secret: cfg.accessSecret
+  consumer_key: process.env.CONSUMER_KEY,
+  consumer_secret: process.env.CONSUMER_SECRET,
+  access_token_key: process.env.ACCESS_KEY,
+  access_token_secret: process.env.ACCESS_SECRET
 })
 
 const getSubscribers = async () => {
@@ -26,7 +26,15 @@ const mapSubscribers = subscribers => {
 }
 
 const getAllFavouritesForUser = async username => {
-  return client.get('favorites/list', { screen_name: username, count: 200 })
+  try {
+    let data = await client.get('favorites/list', {
+      screen_name: username,
+      count: 200
+    })
+    return data
+  } catch (e) {
+    console.log(e)
+  }
 }
 
 const checkValidFavourite = (period, favouriteDate) => {
@@ -79,33 +87,55 @@ const mapUrls = async urls => {
   return content
 }
 
-const sendEmail = (html, subscriber) => {
-  console.log(html)
+const sendEmail = async (html, attachments, subscriber) => {
   let { email, username } = subscriber
   const msg = {
     to: email,
     from: 'noreply@shipper.grabeh.net',
     subject: `Content for @${username}`,
-    html: html
+    html: html,
+    attachments: attachments
   }
-  sgMail.send(msg)
+  try {
+    await sgMail.send(msg)
+  } catch (e) {
+    console.log(e.response.body.errors)
+  }
 }
 
-const check = async subscriber => {
+const formAttachments = content => {
+  return content.map(a => {
+    return {
+      content: Base64.encode(a.text),
+      filename: `${a.title}.txt`,
+      type: 'plain/text',
+      disposition: 'attachment',
+      content_id: 'mytext'
+    }
+  })
+}
+
+const getContentFromFavourites = async subscriber => {
   let { username } = subscriber
   let favourites = await getAllFavouritesForUser(username)
   let qualifying = getFavouritesForPeriod(favourites, 7)
   let urls = extractUrls(qualifying)
-  let contentArr = await mapUrls(urls)
-  let html = produceHtml(contentArr)
-  return html
+  let content = await mapUrls(urls)
+  let data = { content, username }
+  try {
+    let attachments = formAttachments(data.content)
+    let html = await createEmail(data)
+    return { attachments, html }
+  } catch (e) {
+    console.log(e)
+  }
 }
 
 const main = async subscriber => {
-  let html = await check(subscriber)
-  sendEmail(html, subscriber)
+  let { html, attachments } = await getContentFromFavourites(subscriber)
+  sendEmail(html, attachments, subscriber)
 }
 
 main({ username: 'grabbeh', email: 'mbg@outlook.com' })
 
-export default check
+export default getContentFromFavourites

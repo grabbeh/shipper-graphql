@@ -1,10 +1,9 @@
 import React from 'react'
-
 import Grid from './layout/Grid'
 import Header from './elements/Header'
 import Title from './elements/Title'
 import Body from './elements/Body'
-import Weather from './elements/Weather'
+import Content from './elements/Content'
 import Footer from './elements/Footer'
 
 const style = {
@@ -26,8 +25,8 @@ function Email ({ data }) {
       <Grid style={style.main}>
         <Header />
         <Body>
-          <Title>Weather report for {data.city}</Title>
-          <Weather report={data.weather} />
+          <Title>Tweet summary {data.username}</Title>
+          <Content data={data} />
         </Body>
         <Footer />
       </Grid>

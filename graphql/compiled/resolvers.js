@@ -10,6 +10,8 @@ var _graphql = require("graphql");
 
 var _language = require("graphql/language");
 
+var _confirm = require("./confirm");
+
 const resolvers = {
   Date: new _graphql.GraphQLScalarType({
     name: 'Date',
@@ -32,7 +34,13 @@ const resolvers = {
     }
 
   }),
-  Query: {},
+  Query: {
+    subscriber: async (root, {
+      id
+    }, context) => {
+      return _connectors.Subscriber.findById(id);
+    }
+  },
   Mutation: {
     addSubscriber: async (root, {
       email,
@@ -41,10 +49,34 @@ const resolvers = {
       let existingSubscriber = await _connectors.Subscriber.findOne({
         email
       });
-      if (existingSubscriber) return new Error('EXISTING_SUBSCRIPTION');else return _connectors.Subscriber.create({
-        email,
-        username
+
+      if (!existingSubscriber) {
+        const subscriber = await _connectors.Subscriber.create({
+          email,
+          username
+        });
+        await (0, _confirm.sendConfirmationEmail)(email, username, subscriber._id);
+        return subscriber;
+      } else return new Error('EXISTING_SUBSCRIPTION');
+    },
+    confirmSubscriber: async (root, {
+      id
+    }, context) => {
+      try {
+        let subscriber = await (0, _confirm.confirmSubscription)(id);
+        return subscriber;
+      } catch (e) {
+        return new Error(e);
+      }
+    },
+    deleteSubscriber: async (root, {
+      id
+    }, context) => {
+      let result = await _connectors.Subscriber.deleteOne({
+        id
       });
+      console.log(result);
+      return result;
     }
   }
 };

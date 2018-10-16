@@ -9,14 +9,14 @@ var _mongoose = require("mongoose");
 
 var _mongoose2 = _interopRequireDefault(_mongoose);
 
-var _db = require("../../config/db.js");
-
-var _db2 = _interopRequireDefault(_db);
-
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
+require('dotenv').config({
+  path: '../../.env'
+});
+
 try {
-  _mongoose2.default.connect(_db2.default, {
+  _mongoose2.default.connect(process.env.DB_CONNECTION, {
     dbName: 'bookmark',
     useNewUrlParser: true
   });

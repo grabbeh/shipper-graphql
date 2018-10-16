@@ -24,9 +24,9 @@ var _Body = require("./elements/Body");
 
 var _Body2 = _interopRequireDefault(_Body);
 
-var _Weather = require("./elements/Weather");
+var _Content = require("./elements/Content");
 
-var _Weather2 = _interopRequireDefault(_Weather);
+var _Content2 = _interopRequireDefault(_Content);
 
 var _Footer = require("./elements/Footer");
 
@@ -53,8 +53,8 @@ function Email({
     style: style.container
   }, _react2.default.createElement(_Grid2.default, {
     style: style.main
-  }, _react2.default.createElement(_Header2.default, null), _react2.default.createElement(_Body2.default, null, _react2.default.createElement(_Title2.default, null, "Weather report for ", data.city), _react2.default.createElement(_Weather2.default, {
-    report: data.weather
+  }, _react2.default.createElement(_Header2.default, null), _react2.default.createElement(_Body2.default, null, _react2.default.createElement(_Title2.default, null, "Tweet summary ", data.username), _react2.default.createElement(_Content2.default, {
+    data: data
   })), _react2.default.createElement(_Footer2.default, null)));
 }
 

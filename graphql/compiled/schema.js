@@ -6,10 +6,13 @@ Object.defineProperty(exports, "__esModule", {
 const typeDefs = `
 type Query {
   allSubscribers: [Subscriber]
+  subscriber(id: ID): Subscriber
 }
 
 type Mutation {
   addSubscriber(username: String!, email: String!): Subscriber
+  confirmSubscriber(id: ID): Subscriber
+  deleteSubscriber(id: ID!): String
 }
 
 type Subscriber {

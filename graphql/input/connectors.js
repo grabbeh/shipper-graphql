@@ -1,8 +1,11 @@
 import mongoose from 'mongoose'
-import db from '../../config/db.js'
+require('dotenv').config({ path: '../../.env' })
 
 try {
-  mongoose.connect(db, { dbName: 'bookmark', useNewUrlParser: true })
+  mongoose.connect(process.env.DB_CONNECTION, {
+    dbName: 'bookmark',
+    useNewUrlParser: true
+  })
 } catch (error) {
   console.log(error)
 }
