@@ -27,6 +27,7 @@ const resolvers = {
   },
   Mutation: {
     addSubscriber: async (root, { email, username }, context) => {
+      console.log("Server hit")
       let existingSubscriber = await Subscriber.findOne({ email })
       if (!existingSubscriber) {
         const subscriber = await Subscriber.create({ email, username })
